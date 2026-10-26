@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Egypt AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #f5f7ff;
+    --muted: #b8c2d8;
+    --line: rgba(255,255,255,.19);
+    --glass: rgba(255,255,255,.095);
+    --glass-strong: rgba(255,255,255,.14);
+    --blue: #8bbcff;
+    --mint: #82f3d2;
+    --rose: #ff9eb5;
+    --radius: 26px;
+  }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; height: 100%; }
+  body {
+    margin: 0; display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
+    color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Readex Pro", "Segoe UI", Tahoma, sans-serif;
+    font-size: 16px; line-height: 1.8; -webkit-text-size-adjust: 100%;
+    background: radial-gradient(ellipse at 12% 5%, rgba(97,139,255,.45), transparent 34%),
+                radial-gradient(ellipse at 88% 18%, rgba(190,103,255,.32), transparent 32%),
+                radial-gradient(ellipse at 65% 95%, rgba(40,219,191,.22), transparent 35%),
+                linear-gradient(135deg, #0b1020 0%, #111a30 48%, #101827 100%);
+    background-attachment: fixed;
+  }
+  body::before, body::after { content:""; position:fixed; z-index:-1; border-radius:50%; filter:blur(2px); pointer-events:none; }
+  body::before { width:260px; height:260px; top:18%; right:-90px; background:rgba(128,153,255,.12); }
+  body::after { width:300px; height:300px; bottom:-140px; left:-80px; background:rgba(84,235,208,.10); }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+  .wrap { width: min(100% - 32px, 860px); margin-inline: auto; }
+
+  .top { flex:none; padding: 18px 0 8px; }
+  .bar {
+    display:grid; grid-template-columns: 1fr auto; grid-template-areas:"title action" "plate plate";
+    align-items:center; gap:15px; padding:18px; border:1px solid var(--line); border-radius:30px;
+    background:rgba(255,255,255,.075); box-shadow:0 18px 55px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.12);
+    -webkit-backdrop-filter: blur(28px) saturate(165%); backdrop-filter: blur(28px) saturate(165%);
+  }
+  .title { grid-area:title; margin:0; font-size:clamp(1.25rem, 3vw, 1.65rem); font-weight:750; letter-spacing:-.04em; line-height:1.4; }
+  .title::before { content:"✦"; display:inline-grid; place-items:center; width:36px; height:36px; margin-inline-end:10px; border-radius:13px; color:#fff; font-size:18px; vertical-align:middle; background:linear-gradient(145deg,rgba(139,188,255,.95),rgba(167,126,255,.9)); box-shadow:0 5px 22px rgba(116,141,255,.35); }
+  .action { grid-area:action; }
+  .plate { grid-area:plate; display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid rgba(255,255,255,.13); border-radius:19px; background:rgba(0,0,0,.15); }
+  .plate[data-state="temp"] { background:rgba(255,190,90,.10); }
+  .plate[data-state="own"] { background:rgba(91,239,193,.09); }
+  .plate[data-state="error"], .plate[data-state="offline"] { background:rgba(255,115,140,.10); }
+  .dot { flex:none; width:10px; height:10px; border-radius:50%; background:#a8b3ca; box-shadow:0 0 0 4px rgba(168,179,202,.12); }
+  .plate[data-state="temp"] .dot { background:#ffc46b; box-shadow:0 0 0 4px rgba(255,196,107,.13); }
+  .plate[data-state="own"] .dot { background:var(--mint); box-shadow:0 0 0 4px rgba(130,243,210,.13); }
+  .plate[data-state="error"] .dot,.plate[data-state="offline"] .dot { background:var(--rose); box-shadow:0 0 0 4px rgba(255,158,181,.13); }
+  .plate.thinking .dot { animation:breathe 1.1s ease-in-out infinite; }
+  .plate-name { font-size:.92rem; font-weight:700; line-height:1.5; }
+  .plate-state { font-size:.78rem; color:var(--muted); line-height:1.5; overflow-wrap:anywhere; }
+  .ghost { font:inherit; font-size:.84rem; color:#f0f3ff; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); border-radius:14px; padding:8px 13px; cursor:pointer; transition:background .2s, transform .2s; }
+  .ghost:hover:not(:disabled) { background:rgba(255,255,255,.16); transform:translateY(-1px); }
+  .ghost:disabled { opacity:.45; cursor:default; }
+
+  main { flex:1; min-height:0; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.2) transparent; }
+  @media (prefers-reduced-motion:no-preference) { main { scroll-behavior:smooth; } }
+  .list { min-height:100%; display:flex; flex-direction:column; gap:16px; padding-block:24px 28px; }
+  .msg { overflow-wrap:anywhere; white-space:pre-wrap; position:relative; width:fit-content; max-width:min(84%, 650px); padding:11px 16px; border:1px solid rgba(255,255,255,.17); border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.10); -webkit-backdrop-filter:blur(22px) saturate(145%); backdrop-filter:blur(22px) saturate(145%); }
+  .msg::before { display:block; font-size:.75rem; line-height:1.5; font-weight:700; opacity:.72; margin-bottom:4px; }
+  .msg.user { align-self:flex-start; border-radius:20px 20px 5px 20px; background:linear-gradient(135deg,rgba(112,156,255,.32),rgba(164,125,255,.24)); }
+  .msg.user::before { content:"أنت"; color:#d8e7ff; }
+  .msg.assistant { align-self:flex-end; border-radius:20px 20px 20px 5px; background:rgba(255,255,255,.085); border-color:rgba(130,243,210,.22); }
+  .msg.assistant::before { content:"Egypt AI"; color:#aaf5df; }
+  .msg.error { padding:13px 16px; color:#ffdbe3; border:1px solid rgba(255,158,181,.23); background:rgba(255,90,124,.12); border-radius:18px; }
+  .msg.error::before { content:"تنبيه"; color:#ffdbe3; }
+  .typing { display:inline-flex; align-items:center; gap:6px; padding-block:12px; }
+  .typing i { width:7px; height:7px; border-radius:50%; background:#a9c9ff; animation:blink 1.1s ease-in-out infinite; }
+  .typing i:nth-child(2) { animation-delay:.15s; } .typing i:nth-child(3) { animation-delay:.3s; }
+  .empty { margin-block:auto; padding:clamp(25px,7vh,70px) 0; }
+  .empty h2 { margin:0 0 7px; font-size:clamp(1.8rem,5vw,2.6rem); line-height:1.35; letter-spacing:-.05em; font-weight:750; background:linear-gradient(100deg,#fff 15%,#b9d3ff 55%,#c8b7ff 90%); color:transparent; background-clip:text; -webkit-background-clip:text; }
+  .empty p { margin:0 0 22px; color:var(--muted); }
+  .chips { display:flex; flex-wrap:wrap; gap:10px; }
+  .chip { font:inherit; font-size:.88rem; line-height:1.65; color:#f1f4ff; background:rgba(255,255,255,.075); border:1px solid rgba(255,255,255,.17); border-radius:17px; padding:10px 14px; cursor:pointer; box-shadow:inset 0 1px 0 rgba(255,255,255,.07); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); transition:transform .2s,background .2s,border-color .2s; }
+  .chip:hover { transform:translateY(-2px); background:rgba(255,255,255,.13); border-color:rgba(255,255,255,.32); }
+
+  .composer { flex:none; padding:8px 0 max(18px, env(safe-area-inset-bottom)); }
+  .box { display:flex; align-items:flex-end; gap:10px; padding:9px; border:1px solid rgba(255,255,255,.22); border-radius:25px; background:rgba(255,255,255,.105); box-shadow:0 16px 50px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.14); -webkit-backdrop-filter:blur(30px) saturate(165%); backdrop-filter:blur(30px) saturate(165%); transition:border-color .2s,background .2s; }
+  .box:focus-within { border-color:rgba(155,192,255,.65); background:rgba(255,255,255,.13); }
+  .box textarea { flex:1; min-width:0; max-height:10rem; margin:0; padding:8px 12px; font:inherit; font-size:.98rem; line-height:1.65; color:var(--ink); background:transparent; border:0; outline:0; resize:none; }
+  .box textarea::placeholder { color:#aeb9d0; }
+  .send { flex:none; font:inherit; font-size:.9rem; font-weight:700; line-height:1.6; color:#10182b; background:linear-gradient(135deg,#d8e8ff,#a8caff 55%,#c4b7ff); border:0; border-radius:17px; padding:10px 18px; cursor:pointer; box-shadow:0 5px 18px rgba(128,167,255,.22); transition:transform .2s,filter .2s; }
+  .send:hover:not(:disabled) { transform:translateY(-1px); filter:brightness(1.05); }
+  .send:disabled { opacity:.42; cursor:default; }
+  @keyframes breathe { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.55);opacity:.55} }
+  @keyframes blink { 0%,80%,100%{opacity:.25} 40%{opacity:1} }
+  @media(max-width:520px) {
+    .wrap { width:min(100% - 22px,860px); }
+    .top { padding-top:10px; }
+    .bar { padding:13px; gap:12px; border-radius:24px; }
+    .title { font-size:1.2rem; }
+    .title::before { width:31px;height:31px;border-radius:11px;margin-inline-end:7px; }
+    .ghost { padding:7px 9px; font-size:.77rem; }
+    .list { padding-block:18px 20px; }
+    .chip { font-size:.82rem; padding:9px 11px; }
+    .msg { max-width:94%; padding:10px 13px; }
+    .composer { padding-bottom:max(11px,env(safe-area-inset-bottom)); }
+    .box { border-radius:21px; }
+    .send { padding:9px 13px; }
+  }
+  @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap bar">
+    <h1 class="title">Egypt AI</h1>
+    <button type="button" id="reset" class="ghost action">محادثة جديدة</button>
+    <div class="plate" id="plate" data-state="loading" role="status">
+      <span class="dot" aria-hidden="true"></span>
+      <div>
+        <div class="plate-name" id="brain-name">بتواصل مع العقل</div>
+        <div class="plate-state" id="brain-state"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="scroller">
+  <div class="wrap list" id="list" aria-live="polite"></div>
+</main>
+
+<footer class="composer">
+  <form class="wrap box" id="form" autocomplete="off">
+    <textarea id="input" rows="1" placeholder="اكتب رسالتك" aria-label="رسالتك" enterkeyhint="send"></textarea>
+    <button type="submit" class="send" id="send">إرسال</button>
+  </form>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+
+  const STORE_KEY = "egypt-ai-chat-v1";
+  const MAX_HISTORY_SENT = 20;
+  const SUGGESTIONS = ["اشرحلي الذكاء الاصطناعي ببساطة", "ساعدني أتعلم Python", "ابحث عن أحدث أخبار التكنولوجيا", "احسب 12 × 7 + 3"];
+
+  const $ = (id) => document.getElementById(id);
+  const list = $("list");
+  const scroller = $("scroller");
+  const form = $("form");
+  const input = $("input");
+  const sendBtn = $("send");
+  const resetBtn = $("reset");
+  const plate = $("plate");
+  const brainName = $("brain-name");
+  const brainState = $("brain-state");
+
+  let history = loadHistory();
+  let brain = null;
+  let busy = false;
+
+  /* ---------- حفظ المحادثة في المتصفح ---------- */
+  function loadHistory() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+      if (!Array.isArray(saved)) return [];
+      return saved.filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string");
+    } catch (e) {
+      return [];
+    }
+  }
+  function saveHistory() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(history.slice(-100)));
+    } catch (e) { /* التخزين مش متاح، المحادثة هتفضل في الصفحة بس */ }
+  }
+
+  /* ---------- الرسائل ---------- */
+  function scrollDown() {
+    scroller.scrollTop = scroller.scrollHeight;
+  }
+
+  function addMessage(role, text, isError) {
+    const el = document.createElement("div");
+    el.className = "msg " + role + (isError ? " error" : "");
+    el.textContent = text;
+    list.appendChild(el);
+    scrollDown();
+    return el;
+  }
+
+  function addTyping() {
+    const el = document.createElement("div");
+    el.className = "msg assistant typing";
+    el.setAttribute("role", "img");
+    el.setAttribute("aria-label", "العقل بيفكر");
+    el.innerHTML = "<i></i><i></i><i></i>";
+    list.appendChild(el);
+    scrollDown();
+    return el;
+  }
+
+  function emptyText() {
+    return brain && brain.placeholder
+      ? "العقل الحالي مؤقت وبيفهم أسئلة بسيطة. جرّب واحدة من دول:"
+      : "اكتب سؤالك تحت أو جرّب واحدة من دول:";
+  }
+
+  function showEmpty() {
+    const box = document.createElement("div");
+    box.className = "empty";
+    box.id = "empty";
+
+    const h = document.createElement("h2");
+    h.textContent = "ابدأ مع Egypt AI";
+
+    const p = document.createElement("p");
+    p.id = "empty-text";
+    p.textContent = emptyText();
+
+    const chips = document.createElement("div");
+    chips.className = "chips";
+    SUGGESTIONS.forEach((s) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = s;
+      b.addEventListener("click", () => send(s));
+      chips.appendChild(b);
+    });
+
+    box.append(h, p, chips);
+    list.appendChild(box);
+  }
+
+  function clearEmpty() {
+    const el = $("empty");
+    if (el) el.remove();
+  }
+
+  /* ---------- لوحة العقل ---------- */
+  async function refreshBrain() {
+    try {
+      const res = await fetch("/api/brain", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "مشكلة في ملف brain.py");
+      brain = data;
+      plate.dataset.state = data.placeholder ? "temp" : "own";
+      brainName.textContent = data.name;
+      brainState.textContent = data.placeholder
+        ? "عقل مؤقت. بدّله بعقلك داخل ملف brain.py"
+        : "عقلك أنت شغال" + (data.version ? "، إصدار " + data.version : "");
+    } catch (err) {
+      brain = null;
+      if (err instanceof TypeError) {
+        plate.dataset.state = "offline";
+        brainName.textContent = "السيرفر مش شغال";
+        brainState.textContent = "شغّل server.py وحدّث الصفحة";
+      } else {
+        plate.dataset.state = "error";
+        brainName.textContent = "في مشكلة في ملف brain.py";
+        brainState.textContent = err.message;
+      }
+    }
+    const t = $("empty-text");
+    if (t) t.textContent = emptyText();
+  }
+
+  /* ---------- الإرسال ---------- */
+  function setBusy(value) {
+    busy = value;
+    sendBtn.disabled = value;
+    resetBtn.disabled = value;
+    plate.classList.toggle("thinking", value);
+    list.setAttribute("aria-busy", String(value));
+  }
+
+  function autosize() {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 160) + "px";
+  }
+
+  async function send(raw) {
+    const text = raw.trim();
+    if (!text || busy) return;
+
+    setBusy(true);
+    clearEmpty();
+    addMessage("user", text);
+    input.value = "";
+    autosize();
+
+    const prior = history.slice(-MAX_HISTORY_SENT);
+    history.push({ role: "user", content: text });
+    saveHistory();
+
+    const typing = addTyping();
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, history: prior }),
+      });
+      let data = {};
+      try { data = await res.json(); } catch (e) { /* رد مش JSON */ }
+      if (!res.ok || typeof data.reply !== "string") {
+        throw new Error(data.error || "السيرفر رجّع رد غير متوقع");
+      }
+      typing.remove();
+      addMessage("assistant", data.reply);
+      history.push({ role: "assistant", content: data.reply });
+      saveHistory();
+    } catch (err) {
+      typing.remove();
+      history.pop();
+      saveHistory();
+      const msg = err instanceof TypeError
+        ? "مش قادر أوصل للسيرفر. اتأكد إن server.py شغال وجرّب تاني."
+        : err.message;
+      addMessage("assistant", msg, true);
+      if (!input.value) { input.value = text; autosize(); }
+    } finally {
+      setBusy(false);
+      input.focus();
+      refreshBrain();
+    }
+  }
+
+  /* ---------- الأحداث ---------- */
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    send(input.value);
+  });
+
+  input.addEventListener("input", autosize);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+
+  resetBtn.addEventListener("click", () => {
+    history = [];
+    saveHistory();
+    list.replaceChildren();
+    showEmpty();
+    input.focus();
+  });
+
+  /* ---------- البداية ---------- */
+  if (history.length) {
+    history.forEach((m) => addMessage(m.role, m.content));
+  } else {
+    showEmpty();
+  }
+  refreshBrain();
+})();
+</script>
+</body>
+</html>
